@@ -8,8 +8,8 @@ import time
 from datetime import timedelta
 
 
-MAX_VOCAB_SIZE = 10000
-UNK, PAD = '<UNK>', '<PAD>'
+MAX_VOCAB_SIZE = 10000  # 词表长度限制
+UNK, PAD = '<UNK>', '<PAD>'  # 未知字，padding符号
 
 
 def build_vocab(file_path, tokenizer, max_size, min_freq):
@@ -147,6 +147,7 @@ def get_time_dif(start_time):
     end_time = time.time()
     time_dif = end_time - start_time
     return timedelta(seconds=int(round(time_dif)))
+
 
 if __name__ == "__main__":
     '''提取预训练词向量'''
