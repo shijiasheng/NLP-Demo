@@ -150,3 +150,145 @@ GAN网络（生成对抗网络），可以认为是一个造假机器，造出�
 
 
 
+# 关于代码
+
+先从图片开始，当理解了网络的功能之后，具体该怎么实现代码呢？
+
+# How to Train a GAN? Tips and tricks to make GANs work
+
+While research in Generative Adversarial Networks (GANs) continues to improve the fundamental stability of these models, we use a bunch of tricks to train them and make them stable day to day.
+
+Here are a summary of some of the tricks.
+
+[Here's a link to the authors of this document](https://github.com/soumith/ganhacks#authors)
+
+## 1. Normalize the inputs
+
+- normalize the images between -1 and 1
+- Tanh as the last layer of the generator output
+- 对输入的图片进行归一化处理，Tanh作为最后一层输出
+
+## 2: A modified loss function
+
+In GAN papers, the loss function to optimize G is `min (log 1-D)`, but in practice folks practically use `max log D`
+
+- because the first formulation has vanishing gradients early on
+- Goodfellow et. al (2014)
+
+In practice, works well:
+
+- Flip labels when training generator: real = fake, fake = real
+- 在GAN中优化器的选择和参数设置
+
+## 3: Use a spherical Z
+
+- Dont sample from a Uniform distribution
+
+- Sample from a gaussian distribution
+
+- When doing interpolations, do the interpolation via a great circle, rather than a straight line from point A to point B
+- Tom White's [Sampling Generative Networks](https://arxiv.org/abs/1609.04468) ref code https://github.com/dribnet/plat has more details
+
+## 4: BatchNorm
+
+- Construct different mini-batches for real and fake, i.e. each mini-batch needs to contain only all real images or all generated images.
+- when batchnorm is not an option use instance normalization (for each sample, subtract mean and divide by standard deviation).
+- 为真假构造不同的小批量，即每个小批量只需要包含所有真实图像或所有生成的图像。当batchnorm不是选项时，使用实例规范化（对于每个样本，减去平均值并除以标准差）。
+
+## 5: Avoid Sparse Gradients: ReLU, MaxPool
+
+- the stability of the GAN game suffers if you have sparse gradients
+- LeakyReLU = good (in both G and D)
+- For Downsampling, use: Average Pooling, Conv2d + stride
+- For Upsampling, use: PixelShuffle, ConvTranspose2d + stride
+- 对于下采样，请使用：Average Pooling，Conv2d+stride              
+- 对于向上采样，请使用：PixelShuffle、ConvTranspose2d+stride
+  - PixelShuffle: https://arxiv.org/abs/1609.05158
+
+## 6: Use Soft and Noisy Labels
+
+- Label Smoothing, i.e. if you have two target labels: Real=1 and Fake=0, then for each incoming sample, if it is real, then replace the label with a random number between 0.7 and 1.2, and if it is a fake sample, replace it with 0.0 and 0.3 (for example).
+  - Salimans et. al. 2016
+- make the labels the noisy for the discriminator: occasionally flip the labels when training the discriminator
+- 标签平滑，也就是说，如果你有两个目标标签：Real=1和Fake=0，那么对于每个传入的样本，如果它是真的，那么用一个介于0.7和1.2之间的随机数替换标签，如果它是一个伪样本，则将其替换为0.0和0.3（例如）。（虽然不懂为什么）
+
+## 7: DCGAN / Hybrid Models
+
+- Use DCGAN when you can. It works!
+- if you cant use DCGANs and no model is stable, use a hybrid model : KL + GAN or VAE + GAN
+
+## 8: Use stability tricks from RL
+
+- Experience Replay
+  - Keep a replay buffer of past generations and occassionally show them
+  - Keep checkpoints from the past of G and D and occassionaly swap them out for a few iterations
+- All stability tricks that work for deep deterministic policy gradients
+- See Pfau & Vinyals (2016)
+- 对学习率进行稳定，checkpoints存下部分较好的model
+
+## 9: Use the ADAM Optimizer
+
+- optim.Adam rules!
+  - See Radford et. al. 2015
+- Use SGD for discriminator and ADAM for generator
+- 可以用SGD作为鉴别器，ADAM作为发生器（SGD作为训练优化器，ADAM作为测试发生器）
+
+## 10: Track failures early
+
+- D loss goes to 0: failure mode
+- check norms of gradients: if they are over 100 things are screwing up
+- when things are working, D loss has low variance and goes down over time vs having huge variance and spiking
+- if loss of generator steadily decreases, then it's fooling D with garbage (says martin)
+
+## 11: Dont balance loss via statistics (unless you have a good reason to)
+
+- Dont try to find a (number of G / number of D) schedule to uncollapse training
+- It's hard and we've all tried it.
+- If you do try it, have a principled approach to it, rather than intuition
+
+For example
+
+```
+while lossD > A:
+  train D
+while lossG > B:
+  train G
+```
+
+## 12: If you have labels, use them
+
+- if you have labels available, training the discriminator to also classify the samples: auxillary GANs
+- 如果你的图片拥有标签，可以用来辅助鉴别器
+
+## 13: Add noise to inputs, decay over time
+
+- Add some artificial noise to inputs to D (Arjovsky et. al., Huszar, 2016)
+  - http://www.inference.vc/instance-noise-a-trick-for-stabilising-gan-training/
+  - https://openreview.net/forum?id=Hk4_qw5xe
+- adding gaussian noise to every layer of generator (Zhao et. al. EBGAN)
+  - Improved GANs: OpenAI code also has it (commented out)
+  - 在D输入增加一些高斯噪声，这是方便D网络造假
+
+## 14: [notsure] Train discriminator more (sometimes)
+
+- especially when you have noise
+- hard to find a schedule of number of D iterations vs G iterations
+
+## 15: [notsure] Batch Discrimination
+
+- Mixed results
+
+## 16: Discrete variables in Conditional GANs
+
+- Use an Embedding layer
+- Add as additional channels to images
+- Keep embedding dimensionality low and upsample to match image channel size
+- 使用嵌入层              作为附加频道添加到图像              保持嵌入维数低和高采样以匹配图像通道大小
+
+## 17: Use Dropouts in G in both train and test phase
+
+- Provide noise in the form of dropout (50%).
+- Apply on several layers of our generator at both training and test time
+- https://arxiv.org/pdf/1611.07004v1.pdf
+- Dropout=0.5在G网络中。
+
