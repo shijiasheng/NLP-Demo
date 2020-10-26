@@ -122,8 +122,8 @@ for epoch in range(opt.n_epochs):
     for i, (imgs, _) in enumerate(dataloader):
 
         # Adversarial ground truths
-        valid = Variable(Tensor(imgs.size(0), 1).fill_(1.0), requires_grad=False)
-        fake = Variable(Tensor(imgs.size(0), 1).fill_(0.0), requires_grad=False)
+        valid = Variable(Tensor(imgs.size(0), 1).fill_(1.0), requires_grad=False)  #打标签，真图为1
+        fake = Variable(Tensor(imgs.size(0), 1).fill_(0.0), requires_grad=False)   #假图为0
 
         # Configure input
         real_imgs = Variable(imgs.type(Tensor))
@@ -132,33 +132,43 @@ for epoch in range(opt.n_epochs):
         #  Train Generator
         # -----------------
 
+        #另外Pytorch 为什么每一轮batch需要设置optimizer.zero_grad：
+        #根据pytorch中的backward()函数的计算，当网络参量进行反馈时，梯度是被积累的而不是被替换掉；但是在每一个batch时毫无疑问并不需要将两个batch的梯度混合起来累积，因此这里就需要每个batch设置一遍zero_grad 了。
         optimizer_G.zero_grad()
 
         # Sample noise as generator input
-        z = Variable(Tensor(np.random.normal(0, 1, (imgs.shape[0], opt.latent_dim))))
+        z = Variable(Tensor(np.random.normal(0, 1, (imgs.shape[0], opt.latent_dim)))) #加入随机噪声
 
         # Generate a batch of images
-        gen_imgs = generator(z)
+        gen_imgs = generator(z) # 根据噪声生成虚假样本
 
         # Loss measures generator's ability to fool the discriminator
-        g_loss = adversarial_loss(discriminator(gen_imgs), valid)
+        g_loss = adversarial_loss(discriminator(gen_imgs), valid)# 用真实的标签+假样本，计算生成器损失
 
-        g_loss.backward()
-        optimizer_G.step()
+
+        g_loss.backward() # 生成器梯度反向传播，反向传播经过了判别器，故此时判别器参数也有梯度
+        optimizer_G.step()# 生成器参数更新，判别器参数虽然有梯度，但是这一步不能更新判别器
+
+        #那么为什么optimizer.step()需要放在每一个batch训练中，而不是epoch训练中，
+        # 这是因为现在的mini-batch训练模式是假定每一个训练集就只有mini-batch这样大，
+        # 因此实际上可以将每一次mini-batch看做是一次训练，一次训练更新一次参数空间，因而optimizer.step()放在这里。
 
         # ---------------------
         #  Train Discriminator
         # ---------------------
 
-        optimizer_D.zero_grad()
+        optimizer_D.zero_grad()# 把生成器损失函数梯度反向传播时，顺带计算的判别器参数梯度清空
 
         # Measure discriminator's ability to classify real from generated samples
-        real_loss = adversarial_loss(discriminator(real_imgs), valid)
-        fake_loss = adversarial_loss(discriminator(gen_imgs.detach()), fake)
-        d_loss = (real_loss + fake_loss) / 2
+        real_loss = adversarial_loss(discriminator(real_imgs), valid)# 真样本+真标签：判别器损失
+        # 在判别器前向传播过程，输入的假数据被 detach 。这个数据和生成它的计算图“脱钩”了，即梯度传到它那个地方就停了
+        fake_loss = adversarial_loss(discriminator(gen_imgs.detach()), fake)# 假样本+假标签：判别器损失
+        d_loss = (real_loss + fake_loss) / 2# 判别器总的损失函数
 
-        d_loss.backward()
-        optimizer_D.step()
+        d_loss.backward()# 判别器损失回传
+        optimizer_D.step()# 判别器参数更新
+
+
 
         print(
             "[Epoch %d/%d] [Batch %d/%d] [D loss: %f] [G loss: %f]"
