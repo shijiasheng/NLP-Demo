@@ -20,6 +20,7 @@ print( '关键词：' )
 for item in tr4w.get_keywords(20, word_min_len=1):
     print(item.word, item.weight)
 
+
 print()
 print( '关键短语：' )
 for phrase in tr4w.get_keyphrases(keywords_num=20, min_occur_num= 2):
