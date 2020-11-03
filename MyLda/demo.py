@@ -52,6 +52,7 @@ with open('E:/NLP/NLP/MyLda/20newsgroups(2000).txt', 'r') as f:
     for line in f.readlines():
         if line != '':
             docList.append(line.strip())
+print(docList)
 # ==============================================================================
 
 
@@ -100,7 +101,9 @@ texts = [
 processed_texts = []
 for text in texts:
     temp = textPrecessing(text)
+    print(temp)
     processed_texts.append(temp)
+print(processed_texts)
 vectorizer_texts = tf_vectorizer.transform(processed_texts)
 # print(vectorizer_texts)
 # print(lda.transform(vectorizer_texts))  # 获得分布矩阵

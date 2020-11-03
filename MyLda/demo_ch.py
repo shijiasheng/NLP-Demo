@@ -40,7 +40,7 @@ def textPrecessing(text):
     return word2flagdict,cutcorpus
 
 word2flagdict,cutcorpus=textPrecessing(stripcorpus)
-print(word2flagdict)
+print(cutcorpus)
 #该区域仅首次运行，进行文本预处理，第二次运行起注释掉
 # docList = []
 # for desc in data_samples:
@@ -61,43 +61,20 @@ print(word2flagdict)
 
 
 # # 3.统计词频
-from sklearn import feature_extraction
-from sklearn.feature_extraction.text import TfidfTransformer
 from sklearn.feature_extraction.text import CountVectorizer
-
-vectorizer = CountVectorizer()
-transformer = TfidfTransformer()#该类会统计每个词语的tf-idf权值
-#第一个fit_transform是计算tf-idf 第二个fit_transform是将文本转为词频矩阵
-tfidf = transformer.fit_transform(vectorizer.fit_transform(cutcorpus))
-#获取词袋模型中的所有词语
-word = vectorizer.get_feature_names()
-print(word)
-#将tf-idf矩阵抽取出来，元素w[i][j]表示j词在i类文本中的tf-idf权重
-weight = tfidf.toarray()
-wordflagweight = [1 for i in range(len(word))]   #这个是词性系数，需要调整系数来看效果
-print(wordflagweight)
-
-for i in range(len(word)):
-    print(word[i])
-    if(word[i]=="n"):  # 这里只是举个例子，名词重要一点，我们就给它1.1
-        wordflagweight[i] = 1.2
-    elif(word[i]=="vn"):
-        wordflagweight[i] = 1.1
-    elif(word[i]=="m"):  # 只是举个例子，这种量词什么的直接去掉，省了一步停用词词典去除
-        wordflagweight[i] = 0
-    else:                                         # 权重数值还要根据实际情况确定，更多类型还请自己添加
-        continue
-
-import numpy as np
-wordflagweight = np.array(wordflagweight)
-newweight = weight.copy()
-for i in range(len(weight)):
-    for j in range(len(word)):
-        newweight[i][j] = weight[i][j]*wordflagweight[j]
-
-print(newweight)
+from sklearn.externals import joblib  # 也可以选择pickle等保存模型，请随意
+#
+#构建词汇统计向量并保存，仅运行首次 API: https://scikit-learn.org/stable/modules/generated/sklearn.feature_extraction.text.CountVectorizer.html
+tf_vectorizer = CountVectorizer(
+                                max_features=1500,
+                                stop_words='english')
+tf = tf_vectorizer.fit_transform(cutcorpus)
+joblib.dump(tf_vectorizer, 'E:/NLP/NLP/MyLda/model/vec_model/vectorizer_sklearn_ch.model')
 # # ==============================================================================
-
+#得到存储的tf_vectorizer,节省预处理时间
+# tf_vectorizer = joblib.load('E:/NLP/NLP/MyLda/model/vec_model/vectorizer_sklearn_ch.model')
+# tf = tf_vectorizer.fit_transform(cutcorpus)
+print(tf)
 
 # 4.LDA主题模型训练
 #API: https://scikit-learn.org/stable/modules/generated/sklearn.decomposition.LatentDirichletAllocation.html
@@ -105,12 +82,12 @@ from sklearn.decomposition import LatentDirichletAllocation
 
 # # ===============================================================================
 # 训练并存储为模型，初次执行取消注释
-# lda = LatentDirichletAllocation(n_components=20,  # 文章表示成20维的向量
-#                                 max_iter=200,
-#                                 learning_method='batch',
-#                                 verbose=True)
-# lda.fit(newweight)  # newweight即为Document_word Sparse Matrix
-# joblib.dump(lda, 'E:/NLP/NLP/MyLda/model/LDA_model/LDA_sklearn_cn.model')
+lda = LatentDirichletAllocation(n_components=20,  # 文章表示成20维的向量
+                                max_iter=200,
+                                learning_method='batch',
+                                verbose=True)
+lda.fit(tf)  # newweight即为Document_word Sparse Matrix
+joblib.dump(lda, 'E:/NLP/NLP/MyLda/model/LDA_model/LDA_sklearn_cn.model')
 # # ===============================================================================
 #加载lda模型，初次请执行上面的训练过程，注释加载模型
 lda = joblib.load('E:/NLP/NLP/MyLda/model/LDA_model/LDA_sklearn_cn.model')
@@ -119,40 +96,41 @@ lda = joblib.load('E:/NLP/NLP/MyLda/model/LDA_model/LDA_sklearn_cn.model')
 
 # 5.LDA主题模型测试
 
+
+
+#texts = [
+#  "上面是一个简单的绘制效果的函数，下面调用一下这个函数，我们随意取一对参数值eps = 0.95, min_samples = 6, 使用我们的新特征newweight进行训练，代码和得到的结果如下所示：g down and without taking too long at it. Following are golden rules that will ensure your success in business.Map it outMap where you want to head. Plant goals and results all across that mental map and keep checking it off once you start achieving them one by one.Care for your peoplePeople are your biggest asset. They are the ones who will drive your business to the top. Treat them well and they will treat you well, too.Aim for greatness.Build a great company. Build great services or products. Instil a fun culture at your workplace. Inspire innovation. Inspire your people to keep coming with great ideas, because great ideas bring great changes.Be wary.Keep a close eye on the people who you partner with. It doesn’t mean you have to be sceptical of them. But you shouldn’t naively believe everything you hear. Be smart and keep your eyes and ears open all the time.Commit and stick to it.Once you make a decision, commit to it and follow through. Give it your all. If for some reason that decision doesn’t work, retract, go back to the drawing board and pick an alternate route. In business, you will have to make lots of sacrifices. Be prepared for that. It will all be worth it in the end.Be proa"]
+
 corpus = []
 file = codecs.open("sample.txt","r","utf-8")
 for line in file.readlines():
     corpus.append(line.strip())
 
-stripcorpus = corpus.copy()
+stripcorpus1 = corpus.copy()
 
-#texts = [
-#    "上面是一个简单的绘制效果的函数，下面调用一下这个函数，我们随意取一对参数值eps = 0.95, min_samples = 6, 使用我们的新特征newweight进行训练，代码和得到的结果如下所示：g down and without taking too long at it. Following are golden rules that will ensure your success in business.Map it outMap where you want to head. Plant goals and results all across that mental map and keep checking it off once you start achieving them one by one.Care for your peoplePeople are your biggest asset. They are the ones who will drive your business to the top. Treat them well and they will treat you well, too.Aim for greatness.Build a great company. Build great services or products. Instil a fun culture at your workplace. Inspire innovation. Inspire your people to keep coming with great ideas, because great ideas bring great changes.Be wary.Keep a close eye on the people who you partner with. It doesn’t mean you have to be sceptical of them. But you shouldn’t naively believe everything you hear. Be smart and keep your eyes and ears open all the time.Commit and stick to it.Once you make a decision, commit to it and follow through. Give it your all. If for some reason that decision doesn’t work, retract, go back to the drawing board and pick an alternate route. In business, you will have to make lots of sacrifices. Be prepared for that. It will all be worth it in the end.Be proa"]
-
+print(stripcorpus1)
 # 文本先预处理，再在词频模型中结构化，然后将结构化的文本list传入LDA主题模型，判断主题分布。
 processed_texts = []
 
+for text in stripcorpus1:
+    temp, temp1 = textPrecessing(stripcorpus1)
+    vectorizer_texts = tf_vectorizer.transform(temp1)
 
-temp = textPrecessing(stripcorpus)
-print(temp)
-processed_texts.append(temp)
-
-vectorizer_texts = processed_texts
 print(vectorizer_texts)
-print(lda.transform(vectorizer_texts))  # 获得分布矩阵
+print(lda.transform(vectorizer_texts)) # 获得分布矩阵
 
 
-# def print_top_words(model, feature_names, n_top_words):
-#     # 打印每个主题下权重较高的term
-#     for topic_idx, topic in enumerate(model.components_):
-#         print("Topic #%d:" % topic_idx)
-#         print(" ".join([feature_names[i]
-#                         for i in topic.argsort()[:-n_top_words - 1:-1]]))
-#     print()
-#     # 打印主题-词语分布矩阵
-#     print(model.components_)
-#
-#
-# n_top_words = 20
-# tf_feature_names = tf_vectorizer.get_feature_names()
-# print_top_words(lda, tf_feature_names, n_top_words)
+def print_top_words(model, feature_names, n_top_words):
+    # 打印每个主题下权重较高的term
+    for topic_idx, topic in enumerate(model.components_):
+        print("Topic #%d:" % topic_idx)
+        print(" ".join([feature_names[i]
+                        for i in topic.argsort()[:-n_top_words - 1:-1]]))
+    print()
+    # 打印主题-词语分布矩阵
+    print(model.components_)
+
+
+n_top_words = 20
+tf_feature_names = tf_vectorizer.get_feature_names()
+print_top_words(lda, tf_feature_names, n_top_words)
