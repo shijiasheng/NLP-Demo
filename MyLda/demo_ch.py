@@ -1,7 +1,7 @@
 # 1.加载数据
 import codecs
 
-from sklearn.externals import joblib
+# from sklearn.externals import joblib
 
 corpus = []
 file = codecs.open("sample.txt","r","utf-8")
@@ -102,7 +102,7 @@ lda = joblib.load('E:/NLP/NLP/MyLda/model/LDA_model/LDA_sklearn_cn.model')
 #  "上面是一个简单的绘制效果的函数，下面调用一下这个函数，我们随意取一对参数值eps = 0.95, min_samples = 6, 使用我们的新特征newweight进行训练，代码和得到的结果如下所示：g down and without taking too long at it. Following are golden rules that will ensure your success in business.Map it outMap where you want to head. Plant goals and results all across that mental map and keep checking it off once you start achieving them one by one.Care for your peoplePeople are your biggest asset. They are the ones who will drive your business to the top. Treat them well and they will treat you well, too.Aim for greatness.Build a great company. Build great services or products. Instil a fun culture at your workplace. Inspire innovation. Inspire your people to keep coming with great ideas, because great ideas bring great changes.Be wary.Keep a close eye on the people who you partner with. It doesn’t mean you have to be sceptical of them. But you shouldn’t naively believe everything you hear. Be smart and keep your eyes and ears open all the time.Commit and stick to it.Once you make a decision, commit to it and follow through. Give it your all. If for some reason that decision doesn’t work, retract, go back to the drawing board and pick an alternate route. In business, you will have to make lots of sacrifices. Be prepared for that. It will all be worth it in the end.Be proa"]
 
 corpus = []
-file = codecs.open("sample.txt","r","utf-8")
+file = codecs.open("F:\\语料\\sample.txt","r","utf-8")
 for line in file.readlines():
     corpus.append(line.strip())
 

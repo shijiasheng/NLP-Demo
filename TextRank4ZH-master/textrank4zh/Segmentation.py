@@ -52,7 +52,9 @@ class WordSegmentation(object):
             jieba_result = [w for w in jieba_result if w.flag in self.default_speech_tag_filter]
         else:
             jieba_result = [w for w in jieba_result]
-
+        # for w in jieba_result:
+        #     print(w.word, w.flag)
+        # jieba_result = [w for w in jieba_result if w.flag == '/v']
         # 去除特殊符号
         word_list = [w.word.strip() for w in jieba_result if w.flag!='x']
         word_list = [word for word in word_list if len(word)>0]
@@ -112,10 +114,12 @@ class Segmentation(object):
         stop_words_file -- 停止词文件
         delimiters      -- 用来拆分句子的符号集合
         """
+        print("调用__init__")
         self.ws = WordSegmentation(stop_words_file=stop_words_file, allow_speech_tags=allow_speech_tags)
         self.ss = SentenceSegmentation(delimiters=delimiters)
         
     def segment(self, text, lower = False):
+        print("调用segment")
         text = util.as_text(text)
         sentences = self.ss.segment(text)
         words_no_filter = self.ws.segment_sentences(sentences=sentences, 
