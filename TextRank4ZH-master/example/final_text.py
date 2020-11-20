@@ -2,11 +2,94 @@ from gensim.models import word2vec
 import os
 import csv
 from textrank4zh import TextRank4Keyword
+
+def get_information(file_in):
+    text_in = open(file_in, 'rb').read()
+    # 文章截取出来
+    clean_text = text_in.split(b'NULL', -1)
+    keywords = clean_text[8]
+    clean_keywords = keywords.split(b'\n', -1)
+    size_clean_keywords = int((len(clean_keywords) - 11) / 9 + 1)
+    eventtext_in = []
+    source_in = []
+    target_in = []
+    event_root_in = []
+    for j in range(size_clean_keywords):
+        eventtext_in.append(clean_keywords[8 + j * 9].replace(bytes('eventtext\t'.encode('utf-8')), bytes(''.encode('utf-8'))))
+        source_in.append(clean_keywords[6 + j * 9].replace(bytes('Source\t'.encode('utf-8')), bytes(''.encode('utf-8'))))
+        target_in.append(clean_keywords[7 + j * 9].replace(bytes('Target\t'.encode('utf-8')), bytes(''.encode('utf-8'))))
+        event_root_in.append(clean_keywords[9 + j * 9].replace(bytes('eventroot\t'.encode('utf-8')), bytes(''.encode('utf-8'))))
+    article = clean_text[6]
+    result_in = clean_text[8]
+    text = article.decode("utf8").split('\u3000\u3000')
+    title_in = text[1]
+    # print(article.decode("utf8"))
+    # text = text.decode("utf8").split(' ')
+    # print(article.decode("utf8"))
+    # print(article.decode("utf8").strip('\t').strip('\r').replace('\u3000\u3000', ' '))
+    clean_article_in = article.decode("utf8").strip('\t').strip('\r').replace('\u3000\u3000', ' ')
+    return clean_article_in, article, title_in, result_in, eventtext_in, source_in, target_in, event_root_in
+
+def get_score(eventtext, article_textrank, title_textrank):
+    score = 0.00000000000
+    count = 0
+    score = float(score)
+    event_text_count = len(eventtext)
+    for item in title_textrank:
+        for et in eventtext:
+            et = et.decode("utf8")
+            et = et.strip('\t')
+            et = et.strip('\r')
+            et = str(et)
+            if item.word in model and et in model:
+                similarity = model.similarity(item.word, et)
+                if similarity >= 0.5:
+                    score = score + item.weight * similarity
+                    count = count + 1
+            else:
+                if item.word == et:
+                    score = score + item.weight
+                    count = count + 1
+    for item in article_textrank:
+        for et in eventtext:
+            et = et.decode("utf8")
+            et = et.strip('\t')
+            et = et.strip('\r')
+            et = str(et)
+            if item.word in model and et in model:
+                similarity = model.similarity(item.word, et)
+                if similarity >= 0.5:
+                    score = score + item.weight * similarity
+                    count = count + 1
+            else:
+                if item.word == et:
+                    score = score + item.weight
+                    count = count + 1
+    if event_text_count == 0:
+        score = 0
+    else:
+        score = score / event_text_count
+    return score, event_text_count, count
+
+def get_textrank(txt):
+    tr4w = TextRank4Keyword()
+    tr4w.analyze(text=txt, lower=True, window=2)  # py2中text必须是utf8编码的str或者unicode对象，py3中必须是utf8编码的bytes或者str对象
+    len_textrank = round(len(txt) / 1000 * 10) + 1
+    return tr4w.get_keywords(len_textrank, word_min_len=1)
+
+def get_title_textrank(txt):
+    tr4w = TextRank4Keyword()
+    tr4w.analyze(text=txt, lower=True, window=2)  # py2中text必须是utf8编码的str或者unicode对象，py3中必须是utf8编码的bytes或者str对象
+    return tr4w.get_keywords(3, word_min_len=1)
+# 加载model
 model = word2vec.Word2Vec.load("word2vec.model")
+# 打开文件夹
 os.chdir('F:\\语料\\文章_事件结果（存在不完整事件）')
 directory = os.listdir()
+# 文件名按照自然数排序
 i = 0
-header = ['name', 'score', 'event_text_count', 'count', 'event_text', 'mine', 'text']
+# 输出字典的header
+header = ['name', 'score', 'event_text_count', 'count', 'textrank_count', 'event_text', 'event_root', 'textrank', 'title', 'text']
 dictionaries = []
 with open("F:\\语料\\test2.csv", 'w', newline='', encoding='utf-8')as f:
     f_csv = csv.DictWriter(f, header)
@@ -14,116 +97,52 @@ with open("F:\\语料\\test2.csv", 'w', newline='', encoding='utf-8')as f:
 
     for file in directory:
         i = i + 1
-        text = open(file, 'rb').read()
-        # print(text)
+        # 文章截取出来
+        clean_article, in_text, title, result, eventtext, source, target, event_root = get_information(file)
 
-        clean_text = text.split(b'NULL', -1)
-        # print(clean_text)
-
-        keywords = clean_text[8]
-        clean_keywords = keywords.split(b'\n', -1)
-
-        size_clean_keywords = int((len(clean_keywords) - 11) / 9 + 1)
-
-        # print(size_clean_keywords)
-        eventtext = []
-        source = []
-        target = []
-
+        article_textrank = get_textrank(in_text)
+        title_textrank = get_title_textrank(title.encode('utf-8'))
         with open("F:\\语料\\测试\\"+str(i)+".txt", "wb") as out_file:
-            out_file.write(clean_text[6])
+            out_file.write(in_text)
             out_file.write(bytes("\n", encoding="utf8"))
-            out_file.write(clean_text[8])
-            tr4w = TextRank4Keyword()
-            in_text = clean_text[6]
-            tr4w.analyze(text=in_text, lower=True, window=2)  # py2中text必须是utf8编码的str或者unicode对象，py3中必须是utf8编码的bytes或者str对象
+            out_file.write(result)
             out_file.write(bytes("\n", encoding="utf8"))
             out_file.write(bytes("关键词：\n", encoding="utf8"))
-            # print(tr4w.get_keywords(20, word_min_len=1))
-            for item in tr4w.get_keywords(20, word_min_len=1):
-                out_file.write(bytes(str(item.word)+" "+str(item.weight)+"\n", encoding="utf8"))
-            # r = list(set(a).intersection())
-            for j in range(size_clean_keywords):
-                # if j == size_clean_keywords - 1:
-                #     break
-                # eventtext[j] = clean_keywords[-1+j*9].replace(bytes('eventtext\t'.encode('utf-8')), bytes(''.encode('utf-8')))
-                eventtext.append(clean_keywords[8 + j * 9].replace(bytes('eventtext\t'.encode('utf-8')), bytes(''.encode('utf-8'))))
-                source.append(clean_keywords[6 + j * 9].replace(bytes('Source\t'.encode('utf-8')), bytes(''.encode('utf-8'))))
-                target.append(clean_keywords[7 + j * 9].replace(bytes('Target\t'.encode('utf-8')), bytes(''.encode('utf-8'))))
-                # out_file.write(clean_keywords[8 + j * 9].replace(bytes('eventtext\t'.encode('utf-8')), bytes(''.encode('utf-8'))))
-                # print(j)
-            score = 0.00000000000
-            count = 0.00000000000
-            score = float(score)
-            count = float(count)
-            event_text_count = 0
-            for et in eventtext:
-                event_text_count = event_text_count + 1
-            for item in tr4w.get_keywords(50, word_min_len=1):
-                for et in eventtext:
-                    # print(item.word)
-                    et = et.decode("utf8")
-                    et = et.strip('\t')
-                    et = et.strip('\r')
-                    # print(et)
-                    et = str(et)
-                    if item.word in model and et in model:
-                        similarity = model.similarity(item.word, et)
-                        if similarity >= 0.5:
-                            score = score + item.weight * similarity
-                            count = count + 1
-                    else:
-                        if item.word == et:
-                            score = score + item.weight
-                            count = count + 1
-                # for sr in source:
-                #     # print(item.word)
-                #     sr = sr.decode("utf8")
-                #     sr = sr.strip('\t')
-                #     sr = sr.strip('\r')
-                #     # print(et)
-                #     sr = str(sr)
-                #     if item.word == sr:
-                #         score = score + item.weight
-                #         count = count + 1
-                # for tg in target:
-                #     # print(item.word)
-                #     tg = tg.decode("utf8")
-                #     tg = tg.strip('\t')
-                #     tg = tg.strip('\r')
-                #     # print(et)
-                #     tg = str(tg)
-                #     if item.word == tg:
-                #         score = score + item.weight
-                #         count = count + 1
-            if event_text_count == 0:
-                score = 0
-            else:
-                score = score/event_text_count
-            # print(score)
-            # out_file.write(score)
-            dict ={}
-            dict['name'] = str(i)
-            dict['score'] = str(score)
-            dict['event_text_count'] = str(event_text_count)
-            dict['count'] = str(count)
-            eventtext_new = []
-            for et in eventtext:
-                et = et.decode("utf8")
-                et = et.strip('\t')
-                et = et.strip('\r')
-                et = str(et)
-                eventtext_new.append(et)
-            dict['event_text'] = str(eventtext_new)
+            # for item in article_textrank:
+            #     out_file.write(bytes(str(item.word)+" "+str(item.weight)+"\n", encoding="utf8"))
+        score, event_text_count, count = get_score(eventtext, article_textrank, title_textrank)
 
-            mine = []
-            for item in tr4w.get_keywords(50, word_min_len=1):
-                mine.append(item.word)
-            dict['mine'] = str(mine)
-            dict['text'] = str(clean_text[6].decode("utf8"))
-            dictionaries.append(dict)
-            print(dict)
-        # if i == 1000:
-        #     break
+        dict ={}
+        dict['name'] = str(i)
+        dict['score'] = str(score)
+        dict['event_text_count'] = str(event_text_count)
+        dict['textrank_count'] = str(len(article_textrank))
+        dict['count'] = str(count)
+        eventtext_new = []
+        for et in eventtext:
+            et = et.decode("utf8")
+            et = et.strip('\t')
+            et = et.strip('\r')
+            et = str(et)
+            eventtext_new.append(et)
+        dict['event_text'] = str(eventtext_new)
+        textrank = []
+        for item in article_textrank:
+            textrank.append(item.word)
+        event_root_new = []
+        for er in event_root:
+            et = er.decode("utf8")
+            et = et.strip('\t')
+            et = et.strip('\r')
+            et = str(et)
+            event_root_new.append(et)
+        dict['event_root'] = str(event_root_new)
+        dict['textrank'] = str(textrank)
+        dict['title'] = str(title)
+        dict['text'] = str(in_text.decode("utf8"))
+        dictionaries.append(dict)
+        print(dict)
+        if i == 1000:
+            break
 
     f_csv.writerows(dictionaries)
