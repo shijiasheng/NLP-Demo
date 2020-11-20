@@ -35,6 +35,8 @@ def get_score(eventtext, article_textrank, title_textrank):
     count = 0
     score = float(score)
     event_text_count = len(eventtext)
+    clean_article_textrank = []
+    clean_title_textrank = []
     for item in title_textrank:
         for et in eventtext:
             et = et.decode("utf8")
@@ -46,10 +48,12 @@ def get_score(eventtext, article_textrank, title_textrank):
                 if similarity >= 0.5:
                     score = score + item.weight * similarity
                     count = count + 1
+                    clean_title_textrank.append(item)
             else:
                 if item.word == et:
                     score = score + item.weight
                     count = count + 1
+                    clean_title_textrank.append(item)
     for item in article_textrank:
         for et in eventtext:
             et = et.decode("utf8")
@@ -61,15 +65,17 @@ def get_score(eventtext, article_textrank, title_textrank):
                 if similarity >= 0.5:
                     score = score + item.weight * similarity
                     count = count + 1
+                    clean_article_textrank.append(item)
             else:
                 if item.word == et:
                     score = score + item.weight
                     count = count + 1
+                    clean_article_textrank.append(item)
     if event_text_count == 0:
         score = 0
     else:
         score = score / event_text_count
-    return score, event_text_count, count
+    return score, event_text_count, count, clean_title_textrank, clean_article_textrank
 
 def get_textrank(txt):
     tr4w = TextRank4Keyword()
@@ -81,6 +87,42 @@ def get_title_textrank(txt):
     tr4w = TextRank4Keyword()
     tr4w.analyze(text=txt, lower=True, window=2)  # py2中text必须是utf8编码的str或者unicode对象，py3中必须是utf8编码的bytes或者str对象
     return tr4w.get_keywords(3, word_min_len=1)
+
+def form_dictionary(name, score, event_text_count, article_textrank, count, eventtext, title_textrank, event_root, title, in_text):
+    dict = {}
+    dict['name'] = str(name)
+    dict['score'] = str(score)
+    dict['event_text_count'] = str(event_text_count)
+    dict['textrank_count'] = str(len(article_textrank))
+    dict['count'] = str(count)
+    eventtext_new = []
+    for et in eventtext:
+        et = et.decode("utf8")
+        et = et.strip('\t')
+        et = et.strip('\r')
+        et = str(et)
+        eventtext_new.append(et)
+    dict['event_text'] = str(eventtext_new)
+    textrank = []
+    for item in article_textrank:
+        textrank.append(item.word)
+    dict['textrank'] = str(textrank)
+    title_textrank_new = []
+    for item in title_textrank:
+        title_textrank_new.append(item.word)
+    dict['title_textrank'] = str(title_textrank_new)
+    event_root_new = []
+    for er in event_root:
+        et = er.decode("utf8")
+        et = et.strip('\t')
+        et = et.strip('\r')
+        et = str(et)
+        event_root_new.append(et)
+    dict['event_root'] = str(event_root_new)
+
+    dict['title'] = str(title)
+    dict['text'] = str(in_text.decode("utf8"))
+    return dict
 # 加载model
 model = word2vec.Word2Vec.load("word2vec.model")
 # 打开文件夹
@@ -89,7 +131,7 @@ directory = os.listdir()
 # 文件名按照自然数排序
 i = 0
 # 输出字典的header
-header = ['name', 'score', 'event_text_count', 'count', 'textrank_count', 'event_text', 'event_root', 'textrank', 'title', 'text']
+header = ['name', 'score', 'event_text_count', 'count', 'textrank_count', 'event_text', 'event_root', 'textrank', 'title_textrank', 'title', 'text']
 dictionaries = []
 with open("F:\\语料\\test2.csv", 'w', newline='', encoding='utf-8')as f:
     f_csv = csv.DictWriter(f, header)
@@ -110,39 +152,14 @@ with open("F:\\语料\\test2.csv", 'w', newline='', encoding='utf-8')as f:
             out_file.write(bytes("关键词：\n", encoding="utf8"))
             # for item in article_textrank:
             #     out_file.write(bytes(str(item.word)+" "+str(item.weight)+"\n", encoding="utf8"))
-        score, event_text_count, count = get_score(eventtext, article_textrank, title_textrank)
+        score, event_text_count, count, clean_title_textrank, clean_article_textrank = get_score(eventtext, article_textrank, title_textrank)
+        article_textrank = clean_article_textrank
+        title_textrank = clean_title_textrank
 
-        dict ={}
-        dict['name'] = str(i)
-        dict['score'] = str(score)
-        dict['event_text_count'] = str(event_text_count)
-        dict['textrank_count'] = str(len(article_textrank))
-        dict['count'] = str(count)
-        eventtext_new = []
-        for et in eventtext:
-            et = et.decode("utf8")
-            et = et.strip('\t')
-            et = et.strip('\r')
-            et = str(et)
-            eventtext_new.append(et)
-        dict['event_text'] = str(eventtext_new)
-        textrank = []
-        for item in article_textrank:
-            textrank.append(item.word)
-        event_root_new = []
-        for er in event_root:
-            et = er.decode("utf8")
-            et = et.strip('\t')
-            et = et.strip('\r')
-            et = str(et)
-            event_root_new.append(et)
-        dict['event_root'] = str(event_root_new)
-        dict['textrank'] = str(textrank)
-        dict['title'] = str(title)
-        dict['text'] = str(in_text.decode("utf8"))
+        dict = form_dictionary(i, score, event_text_count, article_textrank, count, eventtext, title_textrank, event_root, title, in_text)
         dictionaries.append(dict)
         print(dict)
-        if i == 1000:
+        if i == 100:
             break
 
     f_csv.writerows(dictionaries)
